@@ -3,7 +3,6 @@ package com.smartcoaching.controller;
 import com.smartcoaching.entity.Subject;
 import com.smartcoaching.repository.SubjectRepository;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.security.Principal;
@@ -40,7 +39,6 @@ public class SubjectController {
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> deleteSubject(@PathVariable Long id) {
         subjectRepository.deleteById(id);
         return ResponseEntity.ok().build();

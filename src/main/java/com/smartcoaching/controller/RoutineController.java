@@ -5,7 +5,6 @@ import com.smartcoaching.entity.Routine;
 import com.smartcoaching.entity.User;
 import com.smartcoaching.repository.*;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.security.Principal;
@@ -66,7 +65,6 @@ public class RoutineController {
     }
 
     @PostMapping
-    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> createRoutine(@RequestBody Map<String, Object> payload) {
         Long courseId = Long.parseLong(payload.get("courseId").toString());
         Long subjectId = Long.parseLong(payload.get("subjectId").toString());
@@ -89,7 +87,6 @@ public class RoutineController {
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> deleteRoutine(@PathVariable Long id) {
         routineRepository.deleteById(id);
         return ResponseEntity.ok().build();

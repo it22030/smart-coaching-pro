@@ -7,7 +7,6 @@ import com.smartcoaching.repository.CourseRepository;
 import com.smartcoaching.repository.SubjectRepository;
 import com.smartcoaching.repository.UserRepository;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -56,7 +55,6 @@ public class CourseController {
     }
 
     @PostMapping
-    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> createCourse(@RequestBody Map<String, Object> payload) {
         Long batchId = Long.parseLong(payload.get("batchId").toString());
         Course course = new Course();
@@ -67,7 +65,6 @@ public class CourseController {
     }
 
     @PostMapping("/{courseId}/subjects")
-    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> addSubjectToCourse(@PathVariable Long courseId, @RequestBody Map<String, Object> payload) {
         Course course = courseRepository.findById(courseId).orElseThrow();
         Long teacherId = Long.parseLong(payload.get("teacherId").toString());
@@ -80,7 +77,6 @@ public class CourseController {
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasRole('ADMIN')")
     @Transactional
     public ResponseEntity<?> deleteCourse(@PathVariable Long id) {
         courseRepository.deleteById(id);

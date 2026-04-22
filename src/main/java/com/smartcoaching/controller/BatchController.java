@@ -3,7 +3,6 @@ package com.smartcoaching.controller;
 import com.smartcoaching.entity.Batch;
 import com.smartcoaching.repository.BatchRepository;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -24,13 +23,11 @@ public class BatchController {
     }
 
     @PostMapping
-    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Batch> createBatch(@RequestBody Batch batch) {
         return ResponseEntity.ok(batchRepository.save(batch));
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> deleteBatch(@PathVariable Long id) {
         batchRepository.deleteById(id);
         return ResponseEntity.ok().build();
