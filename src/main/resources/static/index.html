@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes, viewport-fit=cover">
+    <meta name="description" content="Smart Coaching — multi-role coaching management platform for students, teachers and admins.">
+    <title>Smart Coaching | Multi‑Period Class Support</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="app">
+
+    <!-- ===================== HEADER ===================== -->
+    <div class="header">
+        <div class="logo">
+            <h1>📘 SMART COACHING <span>Multi‑Period Classes</span></h1>
+        </div>
+        <button class="logout-btn" id="logoutBtn" style="display:none;">🚪 Logout</button>
+    </div>
+
+    <!-- ===================== AUTH CONTAINER ===================== -->
+    <div id="authContainer" style="padding:20px;">
+        <div class="auth-card">
+            <h2>🔐 Login / Register</h2>
+
+            <!-- Login Form -->
+            <div id="loginDiv">
+                <label>Email</label>
+                <input type="email" id="loginEmail" placeholder="Email" value="admin@coaching.com">
+                <label>Password</label>
+                <input type="password" id="loginPassword" placeholder="Password" value="admin123">
+                <button id="doLoginBtn">Login</button>
+                <p style="margin-top:15px;">New? <a href="#" id="showRegLink">Register</a></p>
+                <p style="font-size:12px; margin-top:8px; color:#5a6e7c;">
+                    Demo: admin@coaching.com / admin123 &nbsp;|&nbsp;
+                    teacher@coaching.com / teacher123 &nbsp;|&nbsp;
+                    student@coaching.com / student123
+                </p>
+            </div>
+
+            <!-- Register Form -->
+            <div id="regDiv" style="display:none;">
+                <label>Full Name</label>
+                <input type="text" id="regName" placeholder="Full Name">
+                <label>Email</label>
+                <input type="email" id="regEmail" placeholder="Email">
+                <label>Phone</label>
+                <input type="tel" id="regPhone" placeholder="Phone Number">
+                <label>Password</label>
+                <input type="password" id="regPassword" placeholder="Password">
+                <label>Role</label>
+                <select id="regRole">
+                    <option value="student">Student</option>
+                    <option value="teacher">Teacher</option>
+                </select>
+                <label id="regRollLabel" style="display:none;">Roll/ID Number</label>
+                <input type="text" id="regRoll" style="display:none;" placeholder="e.g., IT22001">
+                <label id="regBatchLabel" style="display:none;">Batch</label>
+                <select id="regBatch" style="display:none;">
+                    <option value="">-- Select Batch --</option>
+                </select>
+                <button id="doRegBtn">Register</button>
+                <p><a href="#" id="backLoginLink">← Back to Login</a></p>
+            </div>
+
+            <!-- Inline auth messages -->
+            <div id="authMsg" class="message-toast"></div>
+        </div>
+    </div>
+
+    <!-- ===================== PAYMENT MODAL ===================== -->
+    <div id="paymentModal" class="modal">
+        <div class="modal-content">
+            <h3>💰 Complete Payment</h3>
+            <p id="paymentCourseInfo"></p>
+            <p><strong>Amount: <span id="paymentAmount"></span> Tk</strong></p>
+            <label>Payment Method</label>
+            <select id="paymentMethod">
+                <option value="mobile">Mobile Banking (bKash/Nagad)</option>
+                <option value="card">Credit/Debit Card</option>
+            </select>
+            <label>Transaction ID / Reference</label>
+            <input type="text" id="paymentReference" placeholder="Enter transaction ID">
+            <div class="flex-row" style="margin-top:15px;">
+                <button id="confirmPaymentBtn">Confirm Payment</button>
+                <button id="cancelPaymentBtn" style="background:#c44536;">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===================== EDIT USER MODAL (Admin) ===================== -->
+    <div id="editUserModal" class="modal">
+        <div class="modal-content">
+            <h3 id="editUserTitle">Edit User</h3>
+            <input type="hidden" id="editUserId">
+            <label>Name</label><input type="text" id="editName">
+            <label>Email</label><input type="email" id="editEmail">
+            <label>Phone</label><input type="tel" id="editPhone">
+            <div id="editStudentFields" style="display:none;">
+                <label>Roll/ID</label><input type="text" id="editRoll">
+                <label>Batch</label><select id="editBatch"></select>
+            </div>
+            <div class="flex-row" style="margin-top:15px;">
+                <button id="saveUserEditBtn">Save Changes</button>
+                <button id="cancelUserEditBtn" style="background:#c44536;">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===================== EDIT MARKS MODAL (Teacher) ===================== -->
+    <div id="editMarksModal" class="modal">
+        <div class="modal-content">
+            <h3>Edit Exam Marks</h3>
+            <p id="editExamInfo"></p>
+            <div id="editMarksList"></div>
+            <div class="flex-row" style="margin-top:15px;">
+                <button id="saveMarksEditBtn">Save Changes</button>
+                <button id="cancelMarksEditBtn" style="background:#c44536;">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===================== CHANGE PASSWORD MODAL ===================== -->
+    <div id="changePasswordModal" class="modal">
+        <div class="modal-content">
+            <h3>Change Password</h3>
+            <label>Current Password</label>
+            <input type="password" id="currentPassword">
+            <label>New Password</label>
+            <input type="password" id="newPassword">
+            <label>Confirm New Password</label>
+            <input type="password" id="confirmPassword">
+            <div class="flex-row" style="margin-top:15px;">
+                <button id="confirmChangePasswordBtn">Change Password</button>
+                <button id="cancelChangePasswordBtn" style="background:#c44536;">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===================== DASHBOARD AREA ===================== -->
+    <div id="dashboardArea" style="display:none;">
+        <div id="dashHeader" style="background:#e9f0f5; padding:12px 24px; border-radius:40px; margin:16px 24px 0 24px;"></div>
+        <div class="dashboard">
+            <div class="dashboard-nav" id="dynamicNav"></div>
+            <div id="dynamicContent"></div>
+        </div>
+    </div>
+
+</div><!-- /.app -->
+
+<script src="app.js"></script>
+</body>
+</html>
