@@ -22,7 +22,7 @@ public class Routine {
     @JoinColumn(name = "teacher_id", nullable = false)
     private User teacher;
 
-    @Column(name = "\"day\"", nullable = false)
+    @Column(name = "`day`", nullable = false)
     private String day;
 
     @ManyToOne(fetch = FetchType.LAZY)
