@@ -7,7 +7,7 @@ import com.smartcoaching.repository.*;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.security.Principal;
+import jakarta.transaction.Transactional;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -35,15 +35,17 @@ public class RoutineController {
         this.enrollmentRepository = enrollmentRepository;
     }
 
+    @Transactional
     @GetMapping
     public ResponseEntity<List<Map<String, Object>>> getAllRoutines() {
         List<Routine> routines = routineRepository.findAll();
         return ResponseEntity.ok(routines.stream().map(this::mapRoutine).collect(Collectors.toList()));
     }
 
+    @Transactional
     @GetMapping("/my")
-    public ResponseEntity<Map<String, Object>> getMyRoutines(Principal principal) {
-        User user = userRepository.findByEmail(principal.getName()).orElseThrow();
+    public ResponseEntity<Map<String, Object>> getMyRoutines(@RequestHeader("X-User-Email") String userEmail) {
+        User user = userRepository.findByEmail(userEmail).orElseThrow();
         List<Routine> routines;
         if ("teacher".equals(user.getRole())) {
             routines = routineRepository.findByTeacherId(user.getId());
@@ -58,9 +60,19 @@ public class RoutineController {
         }
 
         List<Period> periods = periodRepository.findAll();
+        List<Map<String, Object>> mappedPeriods = periods.stream().map(p -> {
+            Map<String, Object> pm = new HashMap<>();
+            pm.put("id", p.getId());
+            pm.put("label", p.getLabel());
+            pm.put("startTime", p.getStartTime().toString());
+            pm.put("endTime", p.getEndTime().toString());
+            pm.put("orderIndex", p.getOrderIndex());
+            return pm;
+        }).collect(Collectors.toList());
+
         Map<String, Object> result = new HashMap<>();
         result.put("routines", routines.stream().map(this::mapRoutine).collect(Collectors.toList()));
-        result.put("periods", periods);
+        result.put("periods", mappedPeriods);
         return ResponseEntity.ok(result);
     }
 
@@ -109,5 +121,12 @@ public class RoutineController {
         map.put("endPeriodLabel", r.getEndPeriod().getLabel());
         map.put("room", r.getRoom());
         return map;
+    }
+
+    @ExceptionHandler(Exception.class)
+    public ResponseEntity<String> handleException(Exception e) {
+        java.io.StringWriter sw = new java.io.StringWriter();
+        e.printStackTrace(new java.io.PrintWriter(sw));
+        return ResponseEntity.status(500).body(sw.toString());
     }
 }

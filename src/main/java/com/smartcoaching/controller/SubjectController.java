@@ -5,7 +5,7 @@ import com.smartcoaching.repository.SubjectRepository;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.security.Principal;
+import jakarta.transaction.Transactional;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -21,11 +21,12 @@ public class SubjectController {
         this.subjectRepository = subjectRepository;
     }
 
+    @Transactional
     @GetMapping("/my")
-    public ResponseEntity<List<Map<String, Object>>> getMySubjects(Principal principal) {
+    public ResponseEntity<List<Map<String, Object>>> getMySubjects(@RequestHeader("X-User-Email") String userEmail) {
         List<Subject> all = subjectRepository.findAll();
         List<Map<String, Object>> mySubs = all.stream()
-                .filter(s -> s.getTeacher() != null && s.getTeacher().getEmail().equals(principal.getName()))
+                .filter(s -> s.getTeacher() != null && s.getTeacher().getEmail().equals(userEmail))
                 .map(s -> {
                     Map<String, Object> map = new HashMap<>();
                     map.put("courseId", s.getCourse().getId());

@@ -4,7 +4,7 @@
    REST API at http://localhost:8080/api
    ============================================================ */
 
-const API = window.location.origin + '/api';
+const API = 'http://localhost:8080/api';
 
 // JWT token stored in memory (cleared on page refresh for security)
 let authToken = sessionStorage.getItem('sc_token') || null;
@@ -16,9 +16,15 @@ let editMarksContext = null;
 /* ============================================================
    HTTP HELPERS
    ============================================================ */
+function authHeaders() {
+    const h = { 'Authorization': `Bearer ${authToken}` };
+    if (currentUser && currentUser.email) h['X-User-Email'] = currentUser.email;
+    return h;
+}
+
 async function apiGet(path) {
     const res = await fetch(`${API}${path}`, {
-        headers: { 'Authorization': `Bearer ${authToken}` }
+        headers: authHeaders()
     });
     if (!res.ok) throw new Error(await res.text());
     return res.json();
@@ -29,7 +35,7 @@ async function apiPost(path, body) {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${authToken}`
+            ...authHeaders()
         },
         body: JSON.stringify(body)
     });
@@ -44,7 +50,7 @@ async function apiPut(path, body) {
         method: 'PUT',
         headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${authToken}`
+            ...authHeaders()
         },
         body: JSON.stringify(body)
     });
@@ -56,7 +62,7 @@ async function apiPut(path, body) {
 async function apiDelete(path) {
     const res = await fetch(`${API}${path}`, {
         method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${authToken}` }
+        headers: authHeaders()
     });
     if (!res.ok) throw new Error(await res.text());
     return true;
@@ -75,8 +81,8 @@ function format12Hour(time24) {
 }
 
 function escapeHtml(str) {
-    if (!str) return '';
-    return str.replace(/[&<>]/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[m]));
+    if (str == null) return '';
+    return String(str).replace(/[&<>]/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[m]));
 }
 
 function showToast(msg, type = 'info') {
@@ -204,50 +210,81 @@ if (authToken && currentUser) {
 function renderTimetable(routines, periods) {
     if (!periods || !periods.length) return '<p>⏰ No time periods created yet.</p>';
     const daysOrder = ["Saturday","Sunday","Monday","Tuesday","Wednesday","Thursday","Friday"];
-    const grid = {};
-    daysOrder.forEach(day => { grid[day] = Array(periods.length).fill(null); });
-
-    routines.forEach(r => {
-        const day = r.day;
-        if (!grid[day]) return;
-        const startIdx = periods.findIndex(p => p.id == r.startPeriodId);
-        const endIdx   = periods.findIndex(p => p.id == r.endPeriodId);
-        if (startIdx === -1 || endIdx === -1) return;
-        const colspan = endIdx - startIdx + 1;
-        let occupied = false;
-        for (let i = startIdx; i <= endIdx; i++) if (grid[day][i] !== null) occupied = true;
-        if (occupied) return;
-        grid[day][startIdx] = { routine: r, colspan };
-        for (let i = startIdx + 1; i <= endIdx; i++) grid[day][i] = { merged: true };
-    });
 
     let html = `<div class="timetable"><table border="1"><thead><tr><th>Day / Period</th>`;
     periods.forEach(p => {
         html += `<th>${escapeHtml(p.label)}<br><span style="font-size:0.7rem;">${format12Hour(p.startTime)} - ${format12Hour(p.endTime)}</span></th>`;
     });
     html += `</tr></thead><tbody>`;
+
     daysOrder.forEach(day => {
-        html += `<tr><td style="background:#f1f5f9; font-weight:bold;">${day}</td>`;
-        for (let i = 0; i < periods.length; i++) {
-            const cell = grid[day][i];
-            if (!cell) {
-                html += `<td style="vertical-align:top;">—</td>`;
-            } else if (cell.merged) {
-                continue;
-            } else {
-                const r = cell.routine;
-                const colspan = cell.colspan || 1;
-                html += `<td colspan="${colspan}" style="vertical-align:top;">
-                    <div class="class-info">
-                        <div class="subject-name">${escapeHtml(r.subjectName || '?')}</div>
-                        <div>${escapeHtml(r.courseName || '')} (${escapeHtml(r.batchName || '')})</div>
-                        <div>${escapeHtml(r.teacherName || '')}</div>
-                        <div>Room: ${escapeHtml(r.room || '')}</div>
-                    </div></td>`;
+        const dayRoutines = routines.filter(r => r.day === day);
+        
+        const validRoutines = [];
+        dayRoutines.forEach(r => {
+            const startIdx = periods.findIndex(p => p.id == r.startPeriodId);
+            const endIdx   = periods.findIndex(p => p.id == r.endPeriodId);
+            if (startIdx !== -1 && endIdx !== -1 && startIdx <= endIdx) {
+                validRoutines.push({ ...r, startIdx, endIdx, colspan: endIdx - startIdx + 1 });
             }
+        });
+
+        if (validRoutines.length === 0) {
+            html += `<tr><td style="background:#f1f5f9; font-weight:bold;">${day}</td>`;
+            for (let i = 0; i < periods.length; i++) html += `<td>—</td>`;
+            html += `</tr>`;
+            return;
         }
-        html += `</tr>`;
+
+        const lanes = [];
+        validRoutines.forEach(r => {
+            let placed = false;
+            for (let i = 0; i < lanes.length; i++) {
+                let overlap = false;
+                for (let j = r.startIdx; j <= r.endIdx; j++) {
+                    if (lanes[i][j] !== null) overlap = true;
+                }
+                if (!overlap) {
+                    lanes[i][r.startIdx] = r;
+                    for (let j = r.startIdx + 1; j <= r.endIdx; j++) lanes[i][j] = { merged: true };
+                    placed = true;
+                    break;
+                }
+            }
+            if (!placed) {
+                const newLane = Array(periods.length).fill(null);
+                newLane[r.startIdx] = r;
+                for (let j = r.startIdx + 1; j <= r.endIdx; j++) newLane[j] = { merged: true };
+                lanes.push(newLane);
+            }
+        });
+
+        lanes.forEach((lane, laneIdx) => {
+            html += `<tr>`;
+            if (laneIdx === 0) {
+                html += `<td rowspan="${lanes.length}" style="background:#f1f5f9; font-weight:bold; vertical-align:middle;">${day}</td>`;
+            }
+            for (let i = 0; i < periods.length; i++) {
+                const cell = lane[i];
+                if (cell === null) {
+                    html += `<td>—</td>`;
+                } else if (cell.merged) {
+                    continue;
+                } else {
+                    html += `<td colspan="${cell.colspan}" style="vertical-align:top; background:#fff;">
+                        <div class="class-info" style="padding:4px;">
+                            <div class="subject-name" style="color:#1f6392; font-weight:bold;">${escapeHtml(cell.subjectName || '?')}</div>
+                            <div style="font-size:0.85rem;">${escapeHtml(cell.courseName || '')} (${escapeHtml(cell.batchName || '')})</div>
+                            <div style="font-size:0.85rem; color:#5a6e7c;">${escapeHtml(cell.teacherName || '')}</div>
+                            <div style="font-size:0.85rem; color:#c44536; font-weight:500;">Room: ${escapeHtml(cell.room || '')}</div>
+                        </div>
+                    </td>`;
+                }
+            }
+            html += `</tr>`;
+        });
     });
+
     html += `</tbody></table></div>`;
     return html;
 }
@@ -762,9 +799,9 @@ async function showMarkSheetUI() {
     html += `<div style="overflow-x:auto;"><table class="mark-sheet-table"><thead><tr>
         <th>SL</th><th>Roll/ID</th><th>Name</th>
         <th>Attendance (${subConfig.attendanceTotal})</th>
-        ${subConfig.ctExamNames.map(ct => `<th>${escapeHtml(ct)}</th>`).join('')}
+        ${subConfig.ctExamNames.map(ct => `<th>${escapeHtml(ct)}<br><button onclick="deleteExamAllStudents('${sub.courseId}','${sub.subjectId}','${ct}')" style="background:#c44536; font-size:0.7rem; padding:2px 8px; margin-top:4px;">🗑️ Delete Exam</button></th>`).join('')}
         <th>CT Avg (Best ${subConfig.bestCtCount})</th>
-        <th>Regular Assess. (${subConfig.assignmentTotal})</th>
+        <th>Regular Assess. (${subConfig.assignmentTotal})<br><button onclick="deleteExamAllStudents('${sub.courseId}','${sub.subjectId}','Regular Assessment')" style="background:#c44536; font-size:0.7rem; padding:2px 8px; margin-top:4px;">🗑️ Delete Exam</button></th>
         <th>Total</th><th>Action</th>
     </tr></thead><tbody>`;
 
@@ -778,7 +815,7 @@ async function showMarkSheetUI() {
         });
         const bestCt      = Math.min(subConfig.bestCtCount, ctMarks.length);
         const ctAvg       = bestCt > 0 ? [...ctMarks].sort((a,b)=>b-a).slice(0,bestCt).reduce((a,b)=>a+b,0)/bestCt : 0;
-        const assignMark  = allMarks.find(m => m.studentId == s.id && m.examName === 'Assignment');
+        const assignMark  = allMarks.find(m => m.studentId == s.id && m.examName === 'Regular Assessment');
         const assignVal   = assignMark ? assignMark.obtained : 0;
         const total       = attMarks + ctAvg + assignVal;
 
@@ -808,6 +845,15 @@ async function showMarkSheetUI() {
     });
 }
 
+window.deleteExamAllStudents = async (courseId, subjectId, examName) => {
+    if (!confirm(`Delete ALL marks for "${examName}" from all students?`)) return;
+    try {
+        await apiDelete(`/marks/exam?courseId=${courseId}&subjectId=${subjectId}&examName=${encodeURIComponent(examName)}`);
+        showToast(`"${examName}" deleted for all students`);
+        showMarkSheetUI();
+    } catch(e) { showToast('Delete failed', 'error'); }
+};
+
 window.saveMarkSheetConfig = async (courseId, subjectId) => {
     const attTotal  = parseFloat(document.getElementById('attTotal').value);
     const bestCt    = parseInt(document.getElementById('bestCtCount').value);
@@ -825,7 +871,7 @@ window.saveAllAssignments = async (courseId, subjectId) => {
     const assignTotal = parseFloat(document.getElementById('assignTotal').value) || 20;
     const entries = [];
     inputs.forEach(inp => {
-        entries.push({ studentId: inp.dataset.student, courseId, subjectId, examName: 'Assignment', obtained: parseFloat(inp.value)||0, total: assignTotal });
+        entries.push({ studentId: inp.dataset.student, courseId, subjectId, examName: 'Regular Assessment', obtained: parseFloat(inp.value)||0, total: assignTotal });
     });
     try {
         await apiPost('/marks/bulk-assignment', entries);
@@ -842,8 +888,9 @@ window.openEditMarksModal = async (courseId, subjectId, studentId) => {
     marks.forEach(m => {
         html += `<div class="flex-row">
             <strong>${escapeHtml(m.examName)}</strong>
-            <input type="number" step="0.01" value="${m.obtained}" id="edit_mark_${m.id}">
+            <input type="number" step="0.01" value="${m.obtained}" id="edit_mark_${m.id}" style="width:80px;">
             <span>/ ${m.total}</span>
+            <button onclick="deleteSingleMark(${m.id})" style="background:#c44536; padding:2px 8px; margin-left:10px;">🗑️</button>
         </div>`;
     });
     html += `</div>`;
@@ -851,6 +898,19 @@ window.openEditMarksModal = async (courseId, subjectId, studentId) => {
     document.getElementById('editExamInfo').innerHTML = `Editing marks for ${escapeHtml(student.name)} (${escapeHtml(student.rollNo)})`;
     document.getElementById('editMarksModal').style.display = 'flex';
     window._editMarks = marks;
+};
+
+window.deleteSingleMark = async (markId) => {
+    if (!confirm('Delete this mark?')) return;
+    try {
+        await apiDelete(`/marks/${markId}`);
+        showToast('Mark deleted');
+        const { courseId, subjectId, studentId } = editMarksContext;
+        openEditMarksModal(courseId, subjectId, studentId);
+        showMarkSheetUI();
+    } catch (e) {
+        showToast('Failed to delete', 'error');
+    }
 };
 
 document.getElementById('saveMarksEditBtn').onclick = async () => {
@@ -1126,7 +1186,6 @@ async function loadAdminContent(tab) {
                         <div style="flex:1"><label>Label</label><input id="periodLabel" placeholder="1st Period"></div>
                         <div style="flex:1"><label>Start</label><input type="time" id="periodStart"></div>
                         <div style="flex:1"><label>End</label><input type="time" id="periodEnd"></div>
-                        <div style="flex:1"><label>Order</label><input type="number" id="periodOrder"></div>
                         <button onclick="addPeriod()">Add Period</button>
                     </div>
                     <div id="periodsList"></div>
@@ -1171,7 +1230,8 @@ async function loadAdminContent(tab) {
             renderPeriodsListAdmin(periods);
             renderRoutineListAdmin(routines, courses, periods);
 
-            document.getElementById('routineCourse').addEventListener('change', async function() {
+            const courseSelect = document.getElementById('routineCourse');
+            courseSelect.addEventListener('change', async function() {
                 const cid    = this.value;
                 const subSel = document.getElementById('routineSubject');
                 if (!cid) { subSel.innerHTML='<option>-- Select course first --</option>'; subSel.disabled=true; return; }
@@ -1182,11 +1242,17 @@ async function loadAdminContent(tab) {
                 } else { subSel.innerHTML='<option>No subjects</option>'; subSel.disabled=true; }
             });
 
+            const lastCourse = sessionStorage.getItem('lastSelectedCourseId');
+            if (lastCourse) {
+                courseSelect.value = lastCourse;
+                courseSelect.dispatchEvent(new Event('change'));
+            }
+
             window.addPeriod = async () => {
                 const label = document.getElementById('periodLabel').value;
                 const start = document.getElementById('periodStart').value;
                 const end   = document.getElementById('periodEnd').value;
-                const order = parseInt(document.getElementById('periodOrder').value) || 0;
+                const order = 0;
                 if (!label || !start || !end) return showToast('All period fields required', 'error');
                 try { await apiPost('/periods', { label, startTime: start, endTime: end, orderIndex: order }); loadAdminContent('routine'); }
                 catch (e) { showToast('Failed', 'error'); }
@@ -1208,6 +1274,7 @@ async function loadAdminContent(tab) {
                     return showToast('Fill all fields', 'error');
                 try {
                     await apiPost('/routines', payload);
+                    sessionStorage.setItem('lastSelectedCourseId', payload.courseId);
                     showToast('Routine added');
                     loadAdminContent('routine');
                 } catch (e) { showToast(e.message || 'Conflict or error', 'error'); }

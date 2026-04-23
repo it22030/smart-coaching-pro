@@ -9,7 +9,7 @@ import com.smartcoaching.repository.UserRepository;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.security.Principal;
+import jakarta.transaction.Transactional;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -29,6 +29,7 @@ public class PaymentController {
         this.courseRepository = courseRepository;
     }
 
+    @Transactional
     @GetMapping
     public ResponseEntity<List<Map<String, Object>>> getAllPayments() {
         List<Payment> payments = paymentRepository.findAll();
@@ -49,8 +50,8 @@ public class PaymentController {
     }
 
     @PostMapping
-    public ResponseEntity<?> makePayment(@RequestBody Map<String, Object> payload, Principal principal) {
-        User user = userRepository.findByEmail(principal.getName()).orElseThrow();
+    public ResponseEntity<?> makePayment(@RequestBody Map<String, Object> payload, @RequestHeader("X-User-Email") String userEmail) {
+        User user = userRepository.findByEmail(userEmail).orElseThrow();
         Course course = courseRepository.findById(Long.parseLong(payload.get("courseId").toString())).orElseThrow();
 
         Payment payment = new Payment();

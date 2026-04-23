@@ -7,7 +7,7 @@ import com.smartcoaching.repository.UserRepository;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.security.Principal;
+import jakarta.transaction.Transactional;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -25,9 +25,10 @@ public class MessageController {
         this.userRepository = userRepository;
     }
 
+    @Transactional
     @GetMapping
-    public ResponseEntity<?> getMessages(Principal principal) {
-        User user = userRepository.findByEmail(principal.getName()).orElseThrow();
+    public ResponseEntity<?> getMessages(@RequestHeader("X-User-Email") String userEmail) {
+        User user = userRepository.findByEmail(userEmail).orElseThrow();
 
         List<Message> inbox = messageRepository.findByReceiverIdOrderByTimestampDesc(user.getId());
         List<Message> sent = messageRepository.findBySenderIdOrderByTimestampDesc(user.getId());
@@ -39,8 +40,8 @@ public class MessageController {
     }
 
     @PostMapping
-    public ResponseEntity<?> sendMessage(@RequestBody Map<String, Object> payload, Principal principal) {
-        User sender = userRepository.findByEmail(principal.getName()).orElseThrow();
+    public ResponseEntity<?> sendMessage(@RequestBody Map<String, Object> payload, @RequestHeader("X-User-Email") String userEmail) {
+        User sender = userRepository.findByEmail(userEmail).orElseThrow();
         User receiver = userRepository.findById(Long.parseLong(payload.get("receiverId").toString())).orElseThrow();
 
         Message message = new Message();

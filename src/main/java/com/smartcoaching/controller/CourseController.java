@@ -33,6 +33,7 @@ public class CourseController {
     }
 
     @GetMapping
+    @Transactional(readOnly = true)
     public ResponseEntity<List<Map<String, Object>>> getCourses() {
         List<Course> courses = courseRepository.findAll();
         List<Map<String, Object>> response = courses.stream().map(c -> {

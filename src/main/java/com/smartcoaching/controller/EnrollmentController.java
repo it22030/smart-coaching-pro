@@ -9,7 +9,7 @@ import com.smartcoaching.repository.UserRepository;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.security.Principal;
+import jakarta.transaction.Transactional;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -29,9 +29,10 @@ public class EnrollmentController {
         this.userRepository = userRepository;
     }
 
+    @Transactional
     @GetMapping("/my-courses")
-    public ResponseEntity<List<Map<String, Object>>> getMyCourses(Principal principal) {
-        User user = userRepository.findByEmail(principal.getName()).orElseThrow();
+    public ResponseEntity<List<Map<String, Object>>> getMyCourses(@RequestHeader("X-User-Email") String userEmail) {
+        User user = userRepository.findByEmail(userEmail).orElseThrow();
         List<Enrollment> enrollments = enrollmentRepository.findByStudentId(user.getId());
         List<Map<String, Object>> courses = enrollments.stream().map(e -> {
             Map<String, Object> map = new HashMap<>();
@@ -43,9 +44,10 @@ public class EnrollmentController {
         return ResponseEntity.ok(courses);
     }
 
+    @Transactional
     @GetMapping("/available")
-    public ResponseEntity<List<Map<String, Object>>> getAvailableCourses(Principal principal) {
-        User user = userRepository.findByEmail(principal.getName()).orElseThrow();
+    public ResponseEntity<List<Map<String, Object>>> getAvailableCourses(@RequestHeader("X-User-Email") String userEmail) {
+        User user = userRepository.findByEmail(userEmail).orElseThrow();
         Long batchId = user.getBatch() != null ? user.getBatch().getId() : null;
 
         List<Course> allCourses = courseRepository.findAll();
@@ -67,8 +69,8 @@ public class EnrollmentController {
     }
 
     @PostMapping
-    public ResponseEntity<?> enrollCourse(@RequestBody Map<String, Long> payload, Principal principal) {
-        User user = userRepository.findByEmail(principal.getName()).orElseThrow();
+    public ResponseEntity<?> enrollCourse(@RequestBody Map<String, Long> payload, @RequestHeader("X-User-Email") String userEmail) {
+        User user = userRepository.findByEmail(userEmail).orElseThrow();
         Course course = courseRepository.findById(payload.get("courseId")).orElseThrow();
 
         if (enrollmentRepository.findByStudentIdAndCourseId(user.getId(), course.getId()).isPresent()) {

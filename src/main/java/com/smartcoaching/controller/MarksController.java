@@ -119,4 +119,23 @@ public class MarksController {
         }
         return ResponseEntity.ok().build();
     }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<?> deleteMark(@PathVariable Long id) {
+        markRepository.deleteById(id);
+        return ResponseEntity.ok().build();
+    }
+
+    @DeleteMapping("/exam")
+    public ResponseEntity<?> deleteExam(
+            @RequestParam Long courseId,
+            @RequestParam Long subjectId,
+            @RequestParam String examName) {
+        List<Mark> marks = markRepository.findByCourseIdAndSubjectId(courseId, subjectId)
+                .stream()
+                .filter(m -> m.getExamName().equals(examName))
+                .collect(java.util.stream.Collectors.toList());
+        markRepository.deleteAll(marks);
+        return ResponseEntity.ok().build();
+    }
 }

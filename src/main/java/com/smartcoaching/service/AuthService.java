@@ -1,6 +1,5 @@
 package com.smartcoaching.service;
 
-import com.smartcoaching.config.JwtUtil;
 import com.smartcoaching.dto.AuthResponse;
 import com.smartcoaching.dto.LoginRequest;
 import com.smartcoaching.dto.RegisterRequest;
@@ -8,8 +7,6 @@ import com.smartcoaching.entity.Batch;
 import com.smartcoaching.entity.User;
 import com.smartcoaching.repository.BatchRepository;
 import com.smartcoaching.repository.UserRepository;
-import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -19,27 +16,23 @@ public class AuthService {
     private final UserRepository userRepository;
     private final BatchRepository batchRepository;
     private final PasswordEncoder passwordEncoder;
-    private final JwtUtil jwtUtil;
-    private final AuthenticationManager authenticationManager;
-    private final CustomUserDetailsService userDetailsService;
 
     public AuthService(UserRepository userRepository, BatchRepository batchRepository,
-                       PasswordEncoder passwordEncoder, JwtUtil jwtUtil,
-                       AuthenticationManager authenticationManager, CustomUserDetailsService userDetailsService) {
+                       PasswordEncoder passwordEncoder) {
         this.userRepository = userRepository;
         this.batchRepository = batchRepository;
         this.passwordEncoder = passwordEncoder;
-        this.jwtUtil = jwtUtil;
-        this.authenticationManager = authenticationManager;
-        this.userDetailsService = userDetailsService;
     }
 
     public AuthResponse login(LoginRequest request) {
-        authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword())
-        );
-        User user = userRepository.findByEmail(request.getEmail()).orElseThrow();
-        String token = jwtUtil.generateToken(userDetailsService.loadUserByUsername(user.getEmail()));
+        User user = userRepository.findByEmail(request.getEmail())
+                .orElseThrow(() -> new RuntimeException("User not found"));
+                
+        if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
+            throw new RuntimeException("Invalid password");
+        }
+        
+        String token = "dummy-token-for-testing";
         return new AuthResponse(token, buildUserDto(user));
     }
 
@@ -70,7 +63,7 @@ public class AuthService {
         user.setRollNo(request.getRollNo());
 
         userRepository.save(user);
-        String token = jwtUtil.generateToken(userDetailsService.loadUserByUsername(user.getEmail()));
+        String token = "dummy-token-for-testing";
         return new AuthResponse(token, buildUserDto(user));
     }
 

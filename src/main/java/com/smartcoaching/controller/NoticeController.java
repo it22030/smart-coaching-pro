@@ -7,7 +7,7 @@ import com.smartcoaching.repository.UserRepository;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.security.Principal;
+import jakarta.transaction.Transactional;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -25,9 +25,10 @@ public class NoticeController {
         this.userRepository = userRepository;
     }
 
+    @Transactional
     @GetMapping
-    public ResponseEntity<?> getNotices(Principal principal) {
-        User user = userRepository.findByEmail(principal.getName()).orElseThrow();
+    public ResponseEntity<?> getNotices(@RequestHeader("X-User-Email") String userEmail) {
+        User user = userRepository.findByEmail(userEmail).orElseThrow();
         List<Notice> all = noticeRepository.findAllByOrderByCreatedAtDesc();
 
         List<Notice> sent = all.stream().filter(n -> n.getPostedBy().getId().equals(user.getId())).collect(Collectors.toList());
@@ -50,8 +51,8 @@ public class NoticeController {
     }
 
     @PostMapping
-    public ResponseEntity<?> sendNotice(@RequestBody Map<String, Object> payload, Principal principal) {
-        User user = userRepository.findByEmail(principal.getName()).orElseThrow();
+    public ResponseEntity<?> sendNotice(@RequestBody Map<String, Object> payload, @RequestHeader("X-User-Email") String userEmail) {
+        User user = userRepository.findByEmail(userEmail).orElseThrow();
         String content = payload.get("content").toString();
         String targetRole = payload.get("targetRole").toString();
         String targetBatchId = payload.getOrDefault("targetBatchId", "all").toString();
