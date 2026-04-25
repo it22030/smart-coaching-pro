@@ -1,10 +1,10 @@
 /* ============================================================
    Smart Coaching — app.js
    All application logic. Communicates with the Spring Boot
-   REST API at http://localhost:8080/api
+   REST API at /api
    ============================================================ */
 
-const API = 'http://localhost:8080/api';
+const API = '/api';
 
 // JWT token stored in memory (cleared on page refresh for security)
 let authToken = sessionStorage.getItem('sc_token') || null;
@@ -111,6 +111,11 @@ document.getElementById('doLoginBtn').onclick = async () => {
     }
 };
 
+document.getElementById('logoutBtn').onclick = () => {
+    sessionStorage.clear();
+    location.reload();
+};
+
 document.getElementById('regRole').addEventListener('change', function () {
     const isStudent = this.value === 'student';
     document.getElementById('regRoll').style.display      = isStudent ? 'block' : 'none';
@@ -207,12 +212,18 @@ if (authToken && currentUser) {
 /* ============================================================
    TIMETABLE RENDER
    ============================================================ */
+/* ============================================================
+   TIMETABLE RENDER
+   ============================================================ */
 function renderTimetable(routines, periods) {
     if (!periods || !periods.length) return '<p>⏰ No time periods created yet.</p>';
-    const daysOrder = ["Saturday","Sunday","Monday","Tuesday","Wednesday","Thursday","Friday"];
+    
+    // Sort periods by start time to ensure correct column ordering
+    const sortedPeriods = [...periods].sort((a, b) => a.startTime.localeCompare(b.startTime));
+    const daysOrder = ["Saturday", "Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
 
     let html = `<div class="timetable"><table border="1"><thead><tr><th>Day / Period</th>`;
-    periods.forEach(p => {
+    sortedPeriods.forEach(p => {
         html += `<th>${escapeHtml(p.label)}<br><span style="font-size:0.7rem;">${format12Hour(p.startTime)} - ${format12Hour(p.endTime)}</span></th>`;
     });
     html += `</tr></thead><tbody>`;
@@ -222,8 +233,8 @@ function renderTimetable(routines, periods) {
         
         const validRoutines = [];
         dayRoutines.forEach(r => {
-            const startIdx = periods.findIndex(p => p.id == r.startPeriodId);
-            const endIdx   = periods.findIndex(p => p.id == r.endPeriodId);
+            const startIdx = sortedPeriods.findIndex(p => p.id == r.startPeriodId);
+            const endIdx   = sortedPeriods.findIndex(p => p.id == r.endPeriodId);
             if (startIdx !== -1 && endIdx !== -1 && startIdx <= endIdx) {
                 validRoutines.push({ ...r, startIdx, endIdx, colspan: endIdx - startIdx + 1 });
             }
@@ -231,20 +242,24 @@ function renderTimetable(routines, periods) {
 
         if (validRoutines.length === 0) {
             html += `<tr><td style="background:#f1f5f9; font-weight:bold;">${day}</td>`;
-            for (let i = 0; i < periods.length; i++) html += `<td>—</td>`;
+            for (let i = 0; i < sortedPeriods.length; i++) html += `<td>—</td>`;
             html += `</tr>`;
             return;
         }
 
+        // Separate routines into lanes to handle overlaps (multiple batches at the same time)
         const lanes = [];
         validRoutines.forEach(r => {
             let placed = false;
             for (let i = 0; i < lanes.length; i++) {
-                let overlap = false;
+                let hasOverlap = false;
                 for (let j = r.startIdx; j <= r.endIdx; j++) {
-                    if (lanes[i][j] !== null) overlap = true;
+                    if (lanes[i][j]) {
+                        hasOverlap = true;
+                        break;
+                    }
                 }
-                if (!overlap) {
+                if (!hasOverlap) {
                     lanes[i][r.startIdx] = r;
                     for (let j = r.startIdx + 1; j <= r.endIdx; j++) lanes[i][j] = { merged: true };
                     placed = true;
@@ -252,7 +267,7 @@ function renderTimetable(routines, periods) {
                 }
             }
             if (!placed) {
-                const newLane = Array(periods.length).fill(null);
+                const newLane = Array(sortedPeriods.length).fill(null);
                 newLane[r.startIdx] = r;
                 for (let j = r.startIdx + 1; j <= r.endIdx; j++) newLane[j] = { merged: true };
                 lanes.push(newLane);
@@ -264,12 +279,12 @@ function renderTimetable(routines, periods) {
             if (laneIdx === 0) {
                 html += `<td rowspan="${lanes.length}" style="background:#f1f5f9; font-weight:bold; vertical-align:middle;">${day}</td>`;
             }
-            for (let i = 0; i < periods.length; i++) {
+            for (let i = 0; i < sortedPeriods.length; i++) {
                 const cell = lane[i];
-                if (cell === null) {
+                if (!cell) {
                     html += `<td>—</td>`;
                 } else if (cell.merged) {
-                    continue;
+                    continue; // Skip because this is covered by a colspan
                 } else {
                     html += `<td colspan="${cell.colspan}" style="vertical-align:top; background:#fff;">
                         <div class="class-info" style="padding:4px;">
@@ -776,9 +791,9 @@ async function showMarkSheetUI() {
     ]);
     const allExamNames = [...new Set(allMarks.map(m => m.examName))];
     const subConfig = {
-        attendanceTotal: configData.attendanceTotal ?? 10,
+        attendanceTotal: configData.attendanceTotal ?? 0,
         ctExamNames:     configData.ctExamNames     ?? allExamNames.filter(n => n.toUpperCase().includes('CT')),
-        bestCtCount:     configData.bestCtCount     ?? 2,
+        bestCtCount:     configData.bestCtCount     ?? 1,
         assignmentTotal: configData.assignmentTotal ?? 0
     };
 
